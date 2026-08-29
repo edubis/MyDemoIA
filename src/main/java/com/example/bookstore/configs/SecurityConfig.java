@@ -2,9 +2,12 @@ package com.example.bookstore.configs;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -14,22 +17,29 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableWebSecurity // Activates Spring Security web support
+@EnableWebSecurity
+@EnableMethodSecurity // habilita @PreAuthorize / @RolesAllowed
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Configure authorization rules
+                // Desabilita CSRF para API (se sua API for stateful com formulários, ajuste conforme necessário)
+                .csrf(csrf -> csrf.disable())
+                // Para API REST: sem sessão
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Autorização por endpoint
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/graphic_card/**").permitAll() // Public endpoints
-                        .requestMatchers("/graphic_card/**").hasRole("ADMIN") // Admin only
-                        .anyRequest().authenticated() // Everything else requires login
+                        // permitir leitura pública por GET (exemplo)
+                        .requestMatchers(HttpMethod.GET, "/graphic_card/**").permitAll()
+                        // exigir ADMIN para demais operações sobre /graphic_card/**
+                        .requestMatchers("/graphic_card/**").hasRole("ADMIN")
+                        .anyRequest().authenticated()
                 )
-                // 2. Enable form-based login (for browser apps)
-                .formLogin(Customizer.withDefaults())
-                // 3. Enable basic HTTP authentication (for API testing)
-                .httpBasic(Customizer.withDefaults());
+                // Habilita Basic (útil para testes com Postman)
+                .httpBasic(Customizer.withDefaults())
+                // (opcional) mantém formLogin para testes via navegador se desejar
+                .formLogin(Customizer.withDefaults());
 
         return http.build();
     }
